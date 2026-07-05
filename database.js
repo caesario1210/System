@@ -97,6 +97,54 @@ function tursoRequest(sql, params = []) {
           }
           if (result.last_insert_rowid === undefined) result.last_insert_rowid = null;
           resolve(result);
+          } catch (e) { reject(e); }
+      });
+    });
+    req.on('error', reject);
+    req.write(body);
+    req.end();
+  });
+}
+
+function tursoRequestStatements(sql, params = []) {
+  const stmt = params.length ? { q: sql, params } : { q: sql };
+  const body = JSON.stringify({ statements: [stmt] });
+
+  return new Promise((resolve, reject) => {
+    const url = new URL(httpUrl);
+    const options = {
+      hostname: url.hostname,
+      port: 443,
+      path: url.pathname || '/',
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${TURSO_DB_AUTH_TOKEN}`,
+        'Content-Type': 'application/json',
+        'Content-Length': Buffer.byteLength(body),
+      },
+    };
+    const req = https.request(options, (res) => {
+      let data = '';
+      res.on('data', c => data += c);
+      res.on('end', () => {
+        if (res.statusCode !== 200) {
+          let msg = data;
+          try { msg = JSON.parse(data).error || data; } catch (e) { /* use raw */ }
+          reject(new Error(`Turso API error (${res.statusCode}): ${String(msg).slice(0, 200)}`));
+          return;
+        }
+        try {
+          const parsed = JSON.parse(data);
+          if (parsed.error) return reject(new Error(parsed.error));
+          if (parsed.results && parsed.results[0] && parsed.results[0].response && parsed.results[0].response.result) {
+            resolve(parsed.results[0].response.result);
+            return;
+          }
+          if (parsed.results && parsed.results[0] && parsed.results[0].columns) {
+            resolve(parsed.results[0]);
+            return;
+          }
+          resolve(parsed);
         } catch (e) { reject(e); }
       });
     });
@@ -119,19 +167,32 @@ let initialized = false;
 
 async function exec(sql) {
   try {
-    if (isTurso) { await tursoRequest(sql); return; }
+    if (isTurso) { await tursoGet(sql); return; }
     await getLocalClient().execute({ sql });
   } catch (e) { /* ignore multi-stmt errors */ }
 }
 
 async function run(sql, params = []) {
-  if (isTurso) { await tursoRequest(sql, params); return; }
+  if (isTurso) { await tursoGet(sql, params); return; }
   await getLocalClient().execute({ sql, args: params });
+}
+
+async function tursoGet(sql, params = []) {
+  let r;
+  try {
+    r = await tursoRequest(sql, params);
+  } catch (e1) {
+    try { r = await tursoRequestStatements(sql, params); }
+    catch (e2) { throw new Error(`Pipeline: ${e1.message}; Statements: ${e2.message}`); }
+  }
+  if (r.columns && r.rows) return r;
+  console.error('tursoGet unexpected format:', JSON.stringify(r).slice(0, 500));
+  return { columns: [], rows: [] };
 }
 
 async function get(sql, params = []) {
   if (isTurso) {
-    const r = await tursoRequest(sql, params);
+    const r = await tursoGet(sql, params);
     if (!r.rows || !r.rows.length) return null;
     return rowsToObjs(r.columns, r.rows)[0];
   }
@@ -141,7 +202,7 @@ async function get(sql, params = []) {
 
 async function all(sql, params = []) {
   if (isTurso) {
-    const r = await tursoRequest(sql, params);
+    const r = await tursoGet(sql, params);
     if (!r.rows || !r.rows.length) return [];
     return rowsToObjs(r.columns, r.rows);
   }
@@ -151,8 +212,8 @@ async function all(sql, params = []) {
 
 async function insert(sql, params = []) {
   if (isTurso) {
-    const r = await tursoRequest(sql, params);
-    return Number(r.last_insert_rowid);
+    const r = await tursoGet(sql, params);
+    return Number(r.last_insert_rowid || 0);
   }
   const r = await getLocalClient().execute({ sql, args: params });
   return Number(r.lastInsertRowid);
@@ -239,6 +300,7 @@ async function initialize() {
   )`);
 
   const row = await get('SELECT COUNT(*) as count FROM users');
+  if (!row) return;
   const count = Number(row.count);
   if (count === 0) {
     await seedData();
