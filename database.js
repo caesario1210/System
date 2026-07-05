@@ -29,20 +29,33 @@ if (isTurso) {
   if (!httpUrl.startsWith('http')) httpUrl = 'https://' + httpUrl;
 }
 
+function mapArg(v) {
+  if (v === null || v === undefined) return { type: 'null', value: null };
+  if (typeof v === 'number') return { type: Number.isInteger(v) ? 'integer' : 'real', value: v };
+  return { type: 'text', value: String(v) };
+}
+
 function tursoRequest(sql, params = []) {
-  const stmt = params.length ? { q: sql, params } : { q: sql };
-  const body = JSON.stringify({ statements: [stmt] });
+  const body = JSON.stringify({
+    requests: [{
+      type: 'execute',
+      stmt: { sql, args: params.map(mapArg) }
+    }]
+  });
 
   return new Promise((resolve, reject) => {
     const url = new URL(httpUrl);
+    let pathname = url.pathname.replace(/\/+$/, '') || '';
+    if (!pathname.endsWith('/v2/pipeline')) pathname += '/v2/pipeline';
     const options = {
       hostname: url.hostname,
       port: 443,
-      path: url.pathname || '/',
+      path: pathname,
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${TURSO_DB_AUTH_TOKEN}`,
         'Content-Type': 'application/json',
+        'Content-Length': Buffer.byteLength(body),
       },
     };
     const req = https.request(options, (res) => {
@@ -60,11 +73,17 @@ function tursoRequest(sql, params = []) {
           if (parsed.error) return reject(new Error(parsed.error));
           if (!parsed.results || !parsed.results[0]) return reject(new Error('Unexpected Turso API response: ' + data.slice(0, 100)));
           const r = parsed.results[0];
-          if (r.error) {
-            const msg = typeof r.error === 'string' ? r.error : (r.error.message || JSON.stringify(r.error));
+          if (r.type === 'error' || r.error) {
+            const msg = typeof (r.error) === 'string' ? r.error : (r.error ? r.error.message || JSON.stringify(r.error) : JSON.stringify(r));
             return reject(new Error(msg));
           }
-          resolve(r);
+          if (r.type === 'ok' && r.response && r.response.result) {
+            const result = r.response.result;
+            if (result.last_insert_rowid === undefined) result.last_insert_rowid = null;
+            resolve(result);
+            return;
+          }
+          reject(new Error('Unexpected Turso pipeline response: ' + data.slice(0, 100)));
         } catch (e) { reject(e); }
       });
     });

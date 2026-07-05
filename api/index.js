@@ -1,4 +1,4 @@
-const { start, app } = require('../server');
+const { start, app } = require('../src/app');
 
 module.exports = async (req, res) => {
   try {
