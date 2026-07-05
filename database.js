@@ -35,22 +35,24 @@ function mapArg(v) {
   return { type: 'text', value: String(v) };
 }
 
-function tursoRequest(sql, params = []) {
-  const body = JSON.stringify({
-    requests: [{
-      type: 'execute',
-      stmt: { sql, args: params.map(mapArg) }
-    }]
-  });
+function extractResult(obj) {
+  if (obj && obj.columns && obj.rows) return obj;
+  if (!obj || typeof obj !== 'object') return null;
+  const vals = Object.values(obj);
+  for (let i = 0; i < vals.length; i++) {
+    const found = extractResult(vals[i]);
+    if (found) return found;
+  }
+  return null;
+}
 
+function tursoFetch(body, path) {
   return new Promise((resolve, reject) => {
     const url = new URL(httpUrl);
-    let pathname = url.pathname.replace(/\/+$/, '') || '';
-    if (!pathname.endsWith('/v2/pipeline')) pathname += '/v2/pipeline';
     const options = {
       hostname: url.hostname,
       port: 443,
-      path: pathname,
+      path: (url.pathname.replace(/\/+$/, '') || '') + path,
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${TURSO_DB_AUTH_TOKEN}`,
@@ -71,33 +73,20 @@ function tursoRequest(sql, params = []) {
         try {
           const parsed = JSON.parse(data);
           if (parsed.error) return reject(new Error(parsed.error));
-          if (!parsed.results || !parsed.results[0]) {
-            // Old-style response: { results: [...] }
-            if (parsed.columns || parsed.rows) {
-              resolve(parsed);
-              return;
-            }
-            console.error('Unexpected Turso response:', data.slice(0, 500));
-            return reject(new Error('Unexpected Turso API response'));
+          const result = extractResult(parsed);
+          if (result) {
+            if (result.last_insert_rowid === undefined) result.last_insert_rowid = null;
+            resolve(result);
+            return;
           }
-          const r = parsed.results[0];
-          if (r.type === 'error' || r.error) {
-            const msg = typeof r.error === 'string' ? r.error : (r.error ? r.error.message || JSON.stringify(r.error) : JSON.stringify(r));
+          if (parsed.results && parsed.results[0] && (parsed.results[0].error || parsed.results[0].type === 'error')) {
+            const first = parsed.results[0];
+            const msg = typeof first.error === 'string' ? first.error :
+              (first.error ? first.error.message || JSON.stringify(first.error) : JSON.stringify(first));
             return reject(new Error(msg));
           }
-          // Pipeline format: r.type='ok', r.response.result
-          let result;
-          if (r.response && r.response.result) {
-            result = r.response.result;
-          } else if (r.result) {
-            result = r.result;
-          } else {
-            // Simplified format: r.columns, r.rows directly
-            result = r;
-          }
-          if (result.last_insert_rowid === undefined) result.last_insert_rowid = null;
-          resolve(result);
-          } catch (e) { reject(e); }
+          resolve({ columns: [], rows: [], last_insert_rowid: null });
+        } catch (e) { reject(e); }
       });
     });
     req.on('error', reject);
@@ -106,52 +95,20 @@ function tursoRequest(sql, params = []) {
   });
 }
 
+function tursoRequest(sql, params = []) {
+  const body = JSON.stringify({
+    requests: [{
+      type: 'execute',
+      stmt: { sql, args: params.map(mapArg) }
+    }]
+  });
+  return tursoFetch(body, '/v2/pipeline');
+}
+
 function tursoRequestStatements(sql, params = []) {
   const stmt = params.length ? { q: sql, params } : { q: sql };
   const body = JSON.stringify({ statements: [stmt] });
-
-  return new Promise((resolve, reject) => {
-    const url = new URL(httpUrl);
-    const options = {
-      hostname: url.hostname,
-      port: 443,
-      path: url.pathname || '/',
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${TURSO_DB_AUTH_TOKEN}`,
-        'Content-Type': 'application/json',
-        'Content-Length': Buffer.byteLength(body),
-      },
-    };
-    const req = https.request(options, (res) => {
-      let data = '';
-      res.on('data', c => data += c);
-      res.on('end', () => {
-        if (res.statusCode !== 200) {
-          let msg = data;
-          try { msg = JSON.parse(data).error || data; } catch (e) { /* use raw */ }
-          reject(new Error(`Turso API error (${res.statusCode}): ${String(msg).slice(0, 200)}`));
-          return;
-        }
-        try {
-          const parsed = JSON.parse(data);
-          if (parsed.error) return reject(new Error(parsed.error));
-          if (parsed.results && parsed.results[0] && parsed.results[0].response && parsed.results[0].response.result) {
-            resolve(parsed.results[0].response.result);
-            return;
-          }
-          if (parsed.results && parsed.results[0] && parsed.results[0].columns) {
-            resolve(parsed.results[0]);
-            return;
-          }
-          resolve(parsed);
-        } catch (e) { reject(e); }
-      });
-    });
-    req.on('error', reject);
-    req.write(body);
-    req.end();
-  });
+  return tursoFetch(body, '/');
 }
 
 function rowsToObjs(columns, rows) {
@@ -179,15 +136,20 @@ async function run(sql, params = []) {
 
 async function tursoGet(sql, params = []) {
   let r;
+  let pipelineErr;
   try {
     r = await tursoRequest(sql, params);
-  } catch (e1) {
-    try { r = await tursoRequestStatements(sql, params); }
-    catch (e2) { throw new Error(`Pipeline: ${e1.message}; Statements: ${e2.message}`); }
-  }
-  if (r.columns && r.rows) return r;
-  console.error('tursoGet unexpected format:', JSON.stringify(r).slice(0, 500));
-  return { columns: [], rows: [] };
+    if (r && r.columns && r.rows) return r;
+    pipelineErr = 'Pipeline response missing columns/rows';
+  } catch (e) { pipelineErr = 'Pipeline: ' + e.message; }
+
+  try {
+    r = await tursoRequestStatements(sql, params);
+    if (r && r.columns && r.rows) return r;
+    pipelineErr += '; Statements also missing columns/rows';
+  } catch (e2) { throw new Error(pipelineErr + '; Statements: ' + e2.message); }
+
+  return { columns: [], rows: [], last_insert_rowid: null };
 }
 
 async function get(sql, params = []) {
