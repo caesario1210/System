@@ -36,7 +36,7 @@ function mapArg(v) {
 }
 
 function extractResult(obj) {
-  if (obj && obj.columns && obj.rows) return obj;
+  if (obj && ((obj.columns && obj.rows) || (obj.cols && obj.rows))) return obj;
   if (!obj || typeof obj !== 'object') return null;
   const vals = Object.values(obj);
   for (let i = 0; i < vals.length; i++) {
@@ -44,6 +44,19 @@ function extractResult(obj) {
     if (found) return found;
   }
   return null;
+}
+
+function normalizeResult(r) {
+  if (!r) return r;
+  if (r.cols && !r.columns) {
+    r.columns = r.cols.map(c => c.name != null ? String(c.name) : c);
+  }
+  if (r.rows && r.rows.length) {
+    r.rows = r.rows.map(row => row.map(cell =>
+      cell && typeof cell === 'object' && 'value' in cell ? cell.value : cell
+    ));
+  }
+  return r;
 }
 
 function tursoFetch(body, path) {
@@ -75,6 +88,7 @@ function tursoFetch(body, path) {
           if (parsed.error) return reject(new Error(parsed.error));
           const result = extractResult(parsed);
           if (result) {
+            normalizeResult(result);
             if (result.last_insert_rowid === undefined) result.last_insert_rowid = null;
             resolve(result);
             return;
@@ -85,7 +99,6 @@ function tursoFetch(body, path) {
               (first.error ? first.error.message || JSON.stringify(first.error) : JSON.stringify(first));
             return reject(new Error(msg));
           }
-          console.error('EXTRACTRESULT FAILED. Raw response (first 2000 chars):', data.slice(0, 2000));
           resolve({ columns: [], rows: [], last_insert_rowid: null });
         } catch (e) { reject(e); }
       });
@@ -140,13 +153,13 @@ async function tursoGet(sql, params = []) {
   let pipelineErr;
   try {
     r = await tursoRequest(sql, params);
-    if (r && r.columns && r.rows) return r;
+    if (r && ((r.columns && r.rows) || (r.cols && r.rows))) return r;
     pipelineErr = 'Pipeline response missing columns/rows';
   } catch (e) { pipelineErr = 'Pipeline: ' + e.message; }
 
   try {
     r = await tursoRequestStatements(sql, params);
-    if (r && r.columns && r.rows) return r;
+    if (r && ((r.columns && r.rows) || (r.cols && r.rows))) return r;
     pipelineErr += '; Statements also missing columns/rows';
   } catch (e2) { throw new Error(pipelineErr + '; Statements: ' + e2.message); }
 
@@ -157,11 +170,7 @@ async function get(sql, params = []) {
   if (isTurso) {
     const r = await tursoGet(sql, params);
     if (!r.rows || !r.rows.length) return null;
-    const objs = rowsToObjs(r.columns, r.rows);
-    if (sql.includes('COUNT') && sql.includes('count')) {
-      console.error('GET columns:', JSON.stringify(r.columns), 'rows:', JSON.stringify(r.rows), 'obj:', JSON.stringify(objs[0]));
-    }
-    return objs[0];
+    return rowsToObjs(r.columns, r.rows)[0];
   }
   const r = await getLocalClient().execute({ sql, args: params });
   return r.rows[0] || null;
