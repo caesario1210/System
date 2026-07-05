@@ -1,5 +1,11 @@
 const express = require('express');
-require('express-async-errors');
+const Layer = require('express/lib/router/layer');
+const origHandle = Layer.prototype.handle_request;
+Layer.prototype.handle_request = function (req, res, next) {
+  const result = origHandle.call(this, req, res, next);
+  if (result && result.catch) result.catch(next);
+  return result;
+};
 const cors = require('cors');
 const bcrypt = require('bcryptjs');
 const path = require('path');

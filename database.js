@@ -1,51 +1,140 @@
-const { createClient } = require('@libsql/client');
 const path = require('path');
 const fs = require('fs');
 const bcrypt = require('bcryptjs');
 
-const isTurso = !!process.env.TURSO_DB_URL;
-const dbUrl = isTurso ? process.env.TURSO_DB_URL : `file:${path.join(__dirname, 'data', 'database.sqlite')}`;
+const TURSO_DB_URL = process.env.TURSO_DB_URL;
+const TURSO_DB_AUTH_TOKEN = process.env.TURSO_DB_AUTH_TOKEN;
+const isTurso = !!TURSO_DB_URL;
+
+let clientModule = null;
+try { clientModule = require('@libsql/client'); } catch (e) { }
 
 let client;
 
-function getClient() {
+function getLocalClient() {
   if (!client) {
-    const opts = { url: dbUrl };
-    if (isTurso) opts.authToken = process.env.TURSO_DB_AUTH_TOKEN;
-    client = createClient(opts);
+    if (!clientModule) throw new Error('@libsql/client not installed. Run: npm install @libsql/client');
+    const dir = path.join(__dirname, 'data');
+    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+    client = clientModule.createClient({ url: `file:${path.join(dir, 'database.sqlite')}` });
   }
   return client;
 }
 
+const https = require('https');
+
+let httpUrl = null;
+if (isTurso) {
+  httpUrl = TURSO_DB_URL.replace(/^libsql:/, 'https:');
+  if (!httpUrl.startsWith('http')) httpUrl = 'https://' + httpUrl;
+}
+
+function tursoRequest(sql, params = []) {
+  let i = 0;
+  const mappedSql = sql.replace(/\?/g, () => `?${++i}`);
+  const args = {};
+  params.forEach((p, idx) => {
+    const key = `?${idx + 1}`;
+    if (p == null) {
+      args[key] = { type: 'null' };
+    } else if (typeof p === 'number') {
+      args[key] = { type: Number.isInteger(p) ? 'integer' : 'real', value: String(p) };
+    } else {
+      args[key] = { type: 'text', value: String(p) };
+    }
+  });
+
+  const body = JSON.stringify({ requests: [{ type: 'execute', stmt: { sql: mappedSql, args } }] });
+
+  return new Promise((resolve, reject) => {
+    const url = new URL(httpUrl);
+    const options = {
+      hostname: url.hostname,
+      port: 443,
+      path: url.pathname || '/',
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${TURSO_DB_AUTH_TOKEN}`,
+        'Content-Type': 'application/json',
+      },
+    };
+    const req = https.request(options, (res) => {
+      let data = '';
+      res.on('data', c => data += c);
+      res.on('end', () => {
+        if (res.statusCode !== 200) {
+          reject(new Error(`Turso API error (${res.statusCode}): ${data.slice(0, 200)}`));
+          return;
+        }
+        try {
+          const parsed = JSON.parse(data);
+          const r = parsed.results[0];
+          if (r.type === 'error') reject(new Error(r.error.message));
+          else resolve(r.response.result);
+        } catch (e) { reject(e); }
+      });
+    });
+    req.on('error', reject);
+    req.write(body);
+    req.end();
+  });
+}
+
+function rowsToObjs(columns, rows) {
+  return rows.map(r => {
+    const o = {};
+    columns.forEach((c, i) => o[c] = r[i]);
+    return o;
+  });
+}
+
+let initialized = false;
+
 async function exec(sql) {
-  const c = getClient();
-  try { await c.execute({ sql }); } catch (e) { /* ignore multi-stmt errors */ }
+  try {
+    if (isTurso) { await tursoRequest(sql); return; }
+    await getLocalClient().execute({ sql });
+  } catch (e) { /* ignore multi-stmt errors */ }
 }
 
 async function run(sql, params = []) {
-  const c = getClient();
-  await c.execute({ sql, args: params });
+  if (isTurso) { await tursoRequest(sql, params); return; }
+  await getLocalClient().execute({ sql, args: params });
 }
 
 async function get(sql, params = []) {
-  const c = getClient();
-  const result = await c.execute({ sql, args: params });
-  return result.rows[0] || null;
+  if (isTurso) {
+    const r = await tursoRequest(sql, params);
+    if (!r.rows || !r.rows.length) return null;
+    return rowsToObjs(r.columns, r.rows)[0];
+  }
+  const r = await getLocalClient().execute({ sql, args: params });
+  return r.rows[0] || null;
 }
 
 async function all(sql, params = []) {
-  const c = getClient();
-  const result = await c.execute({ sql, args: params });
-  return result.rows;
+  if (isTurso) {
+    const r = await tursoRequest(sql, params);
+    if (!r.rows || !r.rows.length) return [];
+    return rowsToObjs(r.columns, r.rows);
+  }
+  const r = await getLocalClient().execute({ sql, args: params });
+  return r.rows;
 }
 
 async function insert(sql, params = []) {
-  const c = getClient();
-  const result = await c.execute({ sql, args: params });
-  return Number(result.lastInsertRowid);
+  if (isTurso) {
+    const r = await tursoRequest(sql, params);
+    return Number(r.last_insert_rowid);
+  }
+  const r = await getLocalClient().execute({ sql, args: params });
+  return Number(r.lastInsertRowid);
 }
 
 async function initialize() {
+  if (initialized) return;
+  initialized = true;
+
   if (!isTurso) {
     const dir = path.join(__dirname, 'data');
     if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
@@ -127,8 +216,6 @@ async function initialize() {
   if (count === 0) {
     await seedData();
   }
-
-  return getClient();
 }
 
 async function seedData() {
