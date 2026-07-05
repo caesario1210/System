@@ -85,6 +85,7 @@ function tursoFetch(body, path) {
               (first.error ? first.error.message || JSON.stringify(first.error) : JSON.stringify(first));
             return reject(new Error(msg));
           }
+          console.error('EXTRACTRESULT FAILED. Raw response (first 2000 chars):', data.slice(0, 2000));
           resolve({ columns: [], rows: [], last_insert_rowid: null });
         } catch (e) { reject(e); }
       });
@@ -156,7 +157,11 @@ async function get(sql, params = []) {
   if (isTurso) {
     const r = await tursoGet(sql, params);
     if (!r.rows || !r.rows.length) return null;
-    return rowsToObjs(r.columns, r.rows)[0];
+    const objs = rowsToObjs(r.columns, r.rows);
+    if (sql.includes('COUNT') && sql.includes('count')) {
+      console.error('GET columns:', JSON.stringify(r.columns), 'rows:', JSON.stringify(r.rows), 'obj:', JSON.stringify(objs[0]));
+    }
+    return objs[0];
   }
   const r = await getLocalClient().execute({ sql, args: params });
   return r.rows[0] || null;
@@ -262,8 +267,10 @@ async function initialize() {
   )`);
 
   const row = await get('SELECT COUNT(*) as count FROM users');
+  console.error('INIT row:', JSON.stringify(row));
   if (!row) return;
-  const count = Number(row.count);
+  const count = Number(Object.values(row)[0]);
+  console.error('INIT count:', count, 'calling seedData?', count === 0);
   if (count === 0) {
     await seedData();
   }

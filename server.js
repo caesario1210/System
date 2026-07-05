@@ -37,7 +37,9 @@ app.post('/api/auth/login', async (req, res) => {
   }
 
   const user = await get('SELECT * FROM users WHERE username = ?', [username]);
+  console.error('LOGIN user object:', JSON.stringify(user));
   if (!user || !user.id || !bcrypt.compareSync(password, user.password)) {
+    console.error('LOGIN failed - user:', !!user, 'id:', user && user.id);
     return res.status(401).json({ error: 'Invalid username or password' });
   }
   if (user.active !== 1) {
