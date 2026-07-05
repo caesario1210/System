@@ -30,21 +30,8 @@ if (isTurso) {
 }
 
 function tursoRequest(sql, params = []) {
-  let i = 0;
-  const mappedSql = sql.replace(/\?/g, () => `?${++i}`);
-  const args = {};
-  params.forEach((p, idx) => {
-    const key = `?${idx + 1}`;
-    if (p == null) {
-      args[key] = { type: 'null' };
-    } else if (typeof p === 'number') {
-      args[key] = { type: Number.isInteger(p) ? 'integer' : 'real', value: String(p) };
-    } else {
-      args[key] = { type: 'text', value: String(p) };
-    }
-  });
-
-  const body = JSON.stringify({ requests: [{ type: 'execute', stmt: { sql: mappedSql, args } }] });
+  const stmt = params.length ? { q: sql, params } : { q: sql };
+  const body = JSON.stringify({ statements: [stmt] });
 
   return new Promise((resolve, reject) => {
     const url = new URL(httpUrl);
@@ -63,14 +50,21 @@ function tursoRequest(sql, params = []) {
       res.on('data', c => data += c);
       res.on('end', () => {
         if (res.statusCode !== 200) {
-          reject(new Error(`Turso API error (${res.statusCode}): ${data.slice(0, 200)}`));
+          let msg = data;
+          try { msg = JSON.parse(data).error || data; } catch (e) { /* use raw */ }
+          reject(new Error(`Turso API error (${res.statusCode}): ${String(msg).slice(0, 200)}`));
           return;
         }
         try {
           const parsed = JSON.parse(data);
+          if (parsed.error) return reject(new Error(parsed.error));
+          if (!parsed.results || !parsed.results[0]) return reject(new Error('Unexpected Turso API response: ' + data.slice(0, 100)));
           const r = parsed.results[0];
-          if (r.type === 'error') reject(new Error(r.error.message));
-          else resolve(r.response.result);
+          if (r.error) {
+            const msg = typeof r.error === 'string' ? r.error : (r.error.message || JSON.stringify(r.error));
+            return reject(new Error(msg));
+          }
+          resolve(r);
         } catch (e) { reject(e); }
       });
     });
