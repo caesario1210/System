@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Customers - EstateOS</title>
+  <link rel="stylesheet" href="css/style.css">
+  <script src="js/api.js"></script>
+</head>
+<body>
+  <div class="app-layout">
+    <aside class="sidebar">
+      <div class="sidebar-header">
+        <h2>Estate<span>OS</span></h2>
+        <p>Real Estate Management</p>
+      </div>
+      <nav class="sidebar-nav">
+        <a href="dashboard.html" class="nav-item">
+          <span class="icon">📊</span>
+          <span>Dashboard</span>
+        </a>
+        <a href="properties.html" class="nav-item">
+          <span class="icon">🏢</span>
+          <span>Properties</span>
+        </a>
+        <a href="customers.html" class="nav-item active">
+          <span class="icon">👥</span>
+          <span>Customers</span>
+        </a>
+        <a href="transactions.html" class="nav-item">
+          <span class="icon">💳</span>
+          <span>Transactions</span>
+        </a>
+        <a href="reports.html" class="nav-item">
+          <span class="icon">📈</span>
+          <span>Reports</span>
+        </a>
+        <a href="users.html" class="nav-item">
+          <span class="icon">👤</span>
+          <span>Users</span>
+        </a>
+        <a href="activity.html" class="nav-item">
+          <span class="icon">📋</span>
+          <span>Activity Log</span>
+        </a>
+      </nav>
+      <div class="sidebar-footer">
+        <div class="user-info">
+          <div class="user-avatar" id="userAvatar">A</div>
+          <div>
+            <div class="user-name" id="userName">Admin</div>
+            <div class="user-role" id="userRole">admin</div>
+          </div>
+        </div>
+        <button class="btn btn-logout btn-sm" onclick="logout()">Sign Out</button>
+      </div>
+    </aside>
+
+    <main class="main-content">
+      <div class="page-header">
+        <div>
+          <h1>Customers</h1>
+          <p>Manage your customer database</p>
+        </div>
+        <button id="addCustomerBtn" class="btn btn-gold">+ Add Customer</button>
+      </div>
+
+      <div class="toolbar">
+        <div class="toolbar-left">
+          <input type="text" id="searchInput" class="search-input" placeholder="Search by name, phone, or email...">
+        </div>
+        <div class="toolbar-right" id="pagination"></div>
+      </div>
+
+      <div class="card">
+        <div class="card-body">
+          <div class="table-container">
+            <table>
+              <thead>
+                <tr>
+                  <th>Name</th>
+                  <th>Phone</th>
+                  <th>Email</th>
+                  <th>Address</th>
+                  <th>Registered</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody id="tableBody"></tbody>
+            </table>
+            <div id="emptyState" class="empty-state" style="display:none;">
+              <div class="icon">&#9632;</div>
+              <h3>No customers found</h3>
+              <p>Try adjusting your search or add a new customer.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <div class="modal-overlay" id="modalOverlay">
+    <div class="modal">
+      <div class="modal-header">
+        <h3 id="modalTitle">Add New Customer</h3>
+        <button class="modal-close">&times;</button>
+      </div>
+      <form id="modalForm" novalidate>
+        <input type="hidden" id="customerId">
+        <div class="modal-body">
+          <div class="form-group">
+            <label for="name">Name *</label>
+            <input type="text" id="name" required>
+            <small class="field-error" style="color:var(--danger);display:none;">Name is required</small>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label for="phone">Phone</label>
+              <input type="tel" id="phone" placeholder="e.g. 081234567890">
+              <small class="field-error-phone" style="color:var(--danger);display:none;">Invalid phone number</small>
+            </div>
+            <div class="form-group">
+              <label for="email">Email</label>
+              <input type="email" id="email" placeholder="e.g. customer@mail.com">
+              <small class="field-error-email" style="color:var(--danger);display:none;">Invalid email format</small>
+            </div>
+          </div>
+          <div class="form-group">
+            <label for="address">Address</label>
+            <textarea id="address"></textarea>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn modal-cancel" style="background:#eee;">Cancel</button>
+          <button type="submit" class="btn btn-primary">Save</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script src="js/customers.js"></script>
+</body>
+</html>

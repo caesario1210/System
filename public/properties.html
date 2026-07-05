@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Properties - EstateOS</title>
+  <link rel="stylesheet" href="css/style.css">
+  <script src="js/api.js"></script>
+</head>
+<body>
+  <div class="app-layout">
+    <aside class="sidebar">
+      <div class="sidebar-header">
+        <h2>Estate<span>OS</span></h2>
+        <p>Real Estate Management</p>
+      </div>
+      <nav class="sidebar-nav">
+        <a href="dashboard.html" class="nav-item">
+          <span class="icon">📊</span>
+          <span>Dashboard</span>
+        </a>
+        <a href="properties.html" class="nav-item active">
+          <span class="icon">🏢</span>
+          <span>Properties</span>
+        </a>
+        <a href="customers.html" class="nav-item">
+          <span class="icon">👥</span>
+          <span>Customers</span>
+        </a>
+        <a href="transactions.html" class="nav-item">
+          <span class="icon">💳</span>
+          <span>Transactions</span>
+        </a>
+        <a href="reports.html" class="nav-item">
+          <span class="icon">📈</span>
+          <span>Reports</span>
+        </a>
+        <a href="users.html" class="nav-item">
+          <span class="icon">👤</span>
+          <span>Users</span>
+        </a>
+        <a href="activity.html" class="nav-item">
+          <span class="icon">📋</span>
+          <span>Activity Log</span>
+        </a>
+      </nav>
+      <div class="sidebar-footer">
+        <div class="user-info">
+          <div class="user-avatar" id="userAvatar">A</div>
+          <div>
+            <div class="user-name" id="userName">Admin</div>
+            <div class="user-role" id="userRole">admin</div>
+          </div>
+        </div>
+        <button class="btn btn-logout btn-sm" onclick="logout()">Sign Out</button>
+      </div>
+    </aside>
+
+    <main class="main-content">
+      <div class="page-header">
+        <div>
+          <h1>Properties</h1>
+          <p>Manage your property listings</p>
+        </div>
+        <button id="addPropertyBtn" class="btn btn-gold">+ Add Property</button>
+      </div>
+
+      <div class="toolbar">
+        <div class="toolbar-left">
+          <input type="text" id="searchInput" class="search-input" placeholder="Search by title, address, or city...">
+          <select id="filterStatus" class="filter-select">
+            <option value="">All Status</option>
+            <option value="available">Available</option>
+            <option value="sold">Sold</option>
+            <option value="pending">Pending</option>
+          </select>
+          <select id="filterType" class="filter-select">
+            <option value="">All Types</option>
+            <option value="house">House</option>
+            <option value="apartment">Apartment</option>
+            <option value="land">Land</option>
+            <option value="office">Office</option>
+          </select>
+        </div>
+        <div class="toolbar-right" id="pagination"></div>
+      </div>
+
+      <div class="card">
+        <div class="card-body">
+          <div class="table-container">
+            <table>
+              <thead>
+                <tr>
+                  <th>Title</th>
+                  <th>Type</th>
+                  <th>Price</th>
+                  <th>City</th>
+                  <th>Status</th>
+                  <th>Details</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody id="tableBody"></tbody>
+            </table>
+            <div id="emptyState" class="empty-state" style="display:none;">
+              <div class="icon">&#9632;</div>
+              <h3>No properties found</h3>
+              <p>Try adjusting your search or add a new property.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <div class="modal-overlay" id="modalOverlay">
+    <div class="modal">
+      <div class="modal-header">
+        <h3 id="modalTitle">Add New Property</h3>
+        <button class="modal-close">&times;</button>
+      </div>
+      <form id="modalForm">
+        <input type="hidden" id="propertyId">
+        <div class="modal-body">
+          <div class="form-group">
+            <label for="title">Title *</label>
+            <input type="text" id="title" required>
+          </div>
+          <div class="form-group">
+            <label for="description">Description</label>
+            <textarea id="description"></textarea>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label for="type">Type *</label>
+              <select id="type" required>
+                <option value="house">House</option>
+                <option value="apartment">Apartment</option>
+                <option value="land">Land</option>
+                <option value="office">Office</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label for="status">Status</label>
+              <select id="status">
+                <option value="available">Available</option>
+                <option value="sold">Sold</option>
+                <option value="pending">Pending</option>
+              </select>
+            </div>
+          </div>
+          <div class="form-group">
+            <label for="price">Price (Rp) *</label>
+            <input type="number" id="price" min="0" required>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label for="address">Address</label>
+              <input type="text" id="address">
+            </div>
+            <div class="form-group">
+              <label for="city">City</label>
+              <input type="text" id="city">
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label for="bedrooms">Bedrooms</label>
+              <input type="number" id="bedrooms" min="0">
+            </div>
+            <div class="form-group">
+              <label for="bathrooms">Bathrooms</label>
+              <input type="number" id="bathrooms" min="0">
+            </div>
+          </div>
+          <div class="form-group">
+            <label for="area">Area (m&sup2;)</label>
+            <input type="number" id="area" min="0">
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn modal-cancel" style="background:#eee;">Cancel</button>
+          <button type="submit" class="btn btn-primary">Save</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <div class="modal-overlay" id="txModalOverlay">
+    <div class="modal">
+      <div class="modal-header">
+        <h3 id="txModalTitle">Record Transaction</h3>
+        <button class="modal-close">&times;</button>
+      </div>
+      <form id="txModalForm">
+        <input type="hidden" id="txPropertyId">
+        <div class="modal-body">
+          <div class="form-group">
+            <label>Property</label>
+            <input type="text" id="txPropertyTitle" readonly style="background:#f5f5f5;">
+          </div>
+          <div class="form-group">
+            <label for="txCustomerId">Customer *</label>
+            <select id="txCustomerId" required>
+              <option value="">-- Select Customer --</option>
+            </select>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label for="txType">Transaction Type *</label>
+              <select id="txType" required>
+                <option value="sale">Sale</option>
+                <option value="down_payment">Down Payment</option>
+                <option value="installment">Installment</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label for="txPaymentMethod">Payment Method</label>
+              <select id="txPaymentMethod">
+                <option value="cash">Cash</option>
+                <option value="transfer">Bank Transfer</option>
+                <option value="kpr">KPR</option>
+              </select>
+            </div>
+          </div>
+          <div class="form-group">
+            <label for="txAmount">Amount (Rp) *</label>
+            <input type="number" id="txAmount" min="0" required>
+          </div>
+          <div class="form-group">
+            <label for="txNotes">Notes</label>
+            <textarea id="txNotes"></textarea>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn modal-cancel" style="background:#eee;">Cancel</button>
+          <button type="submit" class="btn btn-success">Record Transaction</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script src="js/properties.js"></script>
+</body>
+</html>

@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Users - EstateOS</title>
+  <link rel="stylesheet" href="css/style.css">
+  <script src="js/api.js"></script>
+</head>
+<body>
+  <div class="app-layout">
+    <aside class="sidebar">
+      <div class="sidebar-header">
+        <h2>Estate<span>OS</span></h2>
+        <p>Real Estate Management</p>
+      </div>
+      <nav class="sidebar-nav">
+        <a href="dashboard.html" class="nav-item">
+          <span class="icon">📊</span>
+          <span>Dashboard</span>
+        </a>
+        <a href="properties.html" class="nav-item">
+          <span class="icon">🏢</span>
+          <span>Properties</span>
+        </a>
+        <a href="customers.html" class="nav-item">
+          <span class="icon">👥</span>
+          <span>Customers</span>
+        </a>
+        <a href="transactions.html" class="nav-item">
+          <span class="icon">💳</span>
+          <span>Transactions</span>
+        </a>
+        <a href="reports.html" class="nav-item">
+          <span class="icon">📈</span>
+          <span>Reports</span>
+        </a>
+        <a href="users.html" class="nav-item active">
+          <span class="icon">👤</span>
+          <span>Users</span>
+        </a>
+        <a href="activity.html" class="nav-item">
+          <span class="icon">📋</span>
+          <span>Activity Log</span>
+        </a>
+      </nav>
+      <div class="sidebar-footer">
+        <div class="user-info">
+          <div class="user-avatar" id="userAvatar">A</div>
+          <div>
+            <div class="user-name" id="userName">Admin</div>
+            <div class="user-role" id="userRole">admin</div>
+          </div>
+        </div>
+        <button class="btn btn-logout btn-sm" onclick="logout()">Sign Out</button>
+      </div>
+    </aside>
+
+    <main class="main-content">
+      <div class="page-header">
+        <div>
+          <h1>Users</h1>
+          <p>Manage system users and roles</p>
+        </div>
+        <button id="addUserBtn" class="btn btn-gold">+ Add User</button>
+      </div>
+
+      <div class="toolbar">
+        <div class="toolbar-left">
+          <input type="text" id="searchInput" class="search-input" placeholder="Search by username, name, or role...">
+        </div>
+        <div class="toolbar-right" id="pagination"></div>
+      </div>
+
+      <div class="card">
+        <div class="card-body">
+          <div class="table-container">
+            <table>
+              <thead>
+                <tr>
+                  <th>Username</th>
+                  <th>Full Name</th>
+                  <th>Role</th>
+                  <th>Status</th>
+                  <th>Created</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody id="tableBody"></tbody>
+            </table>
+            <div id="emptyState" class="empty-state" style="display:none;">
+              <div class="icon">&#9632;</div>
+              <h3>No users found</h3>
+              <p>Adjust your search or add a new user.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <div class="modal-overlay" id="modalOverlay">
+    <div class="modal" style="max-width:480px;">
+      <div class="modal-header">
+        <h3 id="modalTitle">Add New User</h3>
+        <button class="modal-close">&times;</button>
+      </div>
+      <form id="modalForm" novalidate>
+        <input type="hidden" id="userId">
+        <div class="modal-body">
+          <div class="form-group">
+            <label for="username">Username *</label>
+            <input type="text" id="username" required>
+          </div>
+          <div class="form-group" id="passwordGroup">
+            <label for="password">Password *</label>
+            <input type="password" id="password" minlength="4">
+            <small style="color:var(--text-light);font-size:12px;">Min. 4 characters. Leave blank to keep current when editing.</small>
+          </div>
+          <div class="form-group">
+            <label for="fullName">Full Name *</label>
+            <input type="text" id="fullName" required>
+          </div>
+          <div class="form-group">
+            <label for="role">Role</label>
+            <select id="role">
+              <option value="staff">Staff</option>
+              <option value="admin">Admin</option>
+            </select>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn modal-cancel" style="background:#eee;">Cancel</button>
+          <button type="submit" class="btn btn-primary">Save User</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <div class="modal-overlay" id="resetModalOverlay">
+    <div class="modal" style="max-width:400px;">
+      <div class="modal-header">
+        <h3>Reset Password</h3>
+        <button class="modal-close">&times;</button>
+      </div>
+      <form id="resetForm">
+        <input type="hidden" id="resetUserId">
+        <div class="modal-body">
+          <p style="margin-bottom:16px;color:var(--text-light);">Reset password for <strong id="resetUserName">-</strong></p>
+          <div class="form-group">
+            <label for="resetPassword">New Password *</label>
+            <input type="password" id="resetPassword" minlength="4" required>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn modal-cancel" style="background:#eee;">Cancel</button>
+          <button type="submit" class="btn btn-primary">Reset</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script src="js/users.js"></script>
+</body>
+</html>

@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dashboard - EstateOS</title>
+  <link rel="stylesheet" href="css/style.css">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+  <script src="js/api.js"></script>
+</head>
+<body>
+  <div class="app-layout">
+    <aside class="sidebar">
+      <div class="sidebar-header">
+        <h2>Estate<span>OS</span></h2>
+        <p>Real Estate Management</p>
+      </div>
+      <nav class="sidebar-nav">
+        <a href="dashboard.html" class="nav-item active">
+          <span class="icon">📊</span>
+          <span>Dashboard</span>
+        </a>
+        <a href="properties.html" class="nav-item">
+          <span class="icon">🏢</span>
+          <span>Properties</span>
+        </a>
+        <a href="customers.html" class="nav-item">
+          <span class="icon">👥</span>
+          <span>Customers</span>
+        </a>
+        <a href="transactions.html" class="nav-item">
+          <span class="icon">💳</span>
+          <span>Transactions</span>
+        </a>
+        <a href="reports.html" class="nav-item">
+          <span class="icon">📈</span>
+          <span>Reports</span>
+        </a>
+        <a href="users.html" class="nav-item">
+          <span class="icon">👤</span>
+          <span>Users</span>
+        </a>
+        <a href="activity.html" class="nav-item">
+          <span class="icon">📋</span>
+          <span>Activity Log</span>
+        </a>
+      </nav>
+      <div class="sidebar-footer">
+        <div class="user-info">
+          <div class="user-avatar" id="userAvatar">A</div>
+          <div>
+            <div class="user-name" id="userName">Admin</div>
+            <div class="user-role" id="userRole">admin</div>
+          </div>
+        </div>
+        <button class="btn btn-logout btn-sm" onclick="logout()">Sign Out</button>
+      </div>
+    </aside>
+
+    <main class="main-content">
+      <div class="page-header">
+        <div>
+          <h1>Dashboard</h1>
+          <p>Overview of your real estate business</p>
+        </div>
+      </div>
+
+      <div id="statsContainer">
+        <div class="stats-grid">
+          <div class="stat-card">
+            <div class="stat-icon blue">🏘</div>
+            <div class="stat-info">
+              <h3 id="statProperties">-</h3>
+              <p>Total Properties</p>
+            </div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-icon green">✅</div>
+            <div class="stat-info">
+              <h3 id="statSold">-</h3>
+              <p>Sold</p>
+            </div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-icon orange">⏳</div>
+            <div class="stat-info">
+              <h3 id="statPending">-</h3>
+              <p>Pending</p>
+            </div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-icon purple">💰</div>
+            <div class="stat-info">
+              <h3 id="statRevenue">-</h3>
+              <p>Total Revenue</p>
+            </div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-icon" style="background:#e0f2f1;color:#00796b;">👥</div>
+            <div class="stat-info">
+              <h3 id="statCustomers">-</h3>
+              <p>Total Customers</p>
+            </div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-icon" style="background:#fce4ec;color:#c62828;">📄</div>
+            <div class="stat-info">
+              <h3 id="statTransactions">-</h3>
+              <p>Total Transactions</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="charts-grid">
+          <div class="card">
+            <div class="card-header">Property Status</div>
+            <div class="card-body">
+              <div class="chart-container">
+                <canvas id="statusChart"></canvas>
+              </div>
+            </div>
+          </div>
+          <div class="card">
+            <div class="card-header">Monthly Revenue</div>
+            <div class="card-body">
+              <div class="chart-container">
+                <canvas id="revenueChart"></canvas>
+              </div>
+            </div>
+          </div>
+          <div class="card">
+            <div class="card-header">Sales Trend (7 Days)</div>
+            <div class="card-body">
+              <div class="chart-container">
+                <canvas id="salesChart"></canvas>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-header">Recent Transactions</div>
+          <div class="card-body">
+            <div class="table-container">
+              <table id="recentTransactions">
+                <thead>
+                  <tr>
+                    <th>Property</th>
+                    <th>Customer</th>
+                    <th>Type</th>
+                    <th>Amount</th>
+                    <th>Payment</th>
+                    <th>Date</th>
+                  </tr>
+                </thead>
+                <tbody></tbody>
+              </table>
+              <div id="emptyTransactions" class="empty-state" style="display:none;">
+                <div class="icon">&#9632;</div>
+                <h3>No transactions yet</h3>
+                <p>Transactions will appear here once recorded.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <script src="js/dashboard.js"></script>
+  <script>
+    function logout() {
+      API.logout().then(() => window.location.href = 'login.html');
+    }
+  </script>
+</body>
+</html>

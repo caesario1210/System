@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Transactions - EstateOS</title>
+  <link rel="stylesheet" href="css/style.css">
+  <script src="js/api.js"></script>
+</head>
+<body>
+  <div class="app-layout">
+    <aside class="sidebar">
+      <div class="sidebar-header">
+        <h2>Estate<span>OS</span></h2>
+        <p>Real Estate Management</p>
+      </div>
+      <nav class="sidebar-nav">
+        <a href="dashboard.html" class="nav-item">
+          <span class="icon">📊</span>
+          <span>Dashboard</span>
+        </a>
+        <a href="properties.html" class="nav-item">
+          <span class="icon">🏢</span>
+          <span>Properties</span>
+        </a>
+        <a href="customers.html" class="nav-item">
+          <span class="icon">👥</span>
+          <span>Customers</span>
+        </a>
+        <a href="transactions.html" class="nav-item active">
+          <span class="icon">💳</span>
+          <span>Transactions</span>
+        </a>
+        <a href="reports.html" class="nav-item">
+          <span class="icon">📈</span>
+          <span>Reports</span>
+        </a>
+        <a href="users.html" class="nav-item">
+          <span class="icon">👤</span>
+          <span>Users</span>
+        </a>
+        <a href="activity.html" class="nav-item">
+          <span class="icon">📋</span>
+          <span>Activity Log</span>
+        </a>
+      </nav>
+      <div class="sidebar-footer">
+        <div class="user-info">
+          <div class="user-avatar" id="userAvatar">A</div>
+          <div>
+            <div class="user-name" id="userName">Admin</div>
+            <div class="user-role" id="userRole">admin</div>
+          </div>
+        </div>
+        <button class="btn btn-logout btn-sm" onclick="logout()">Sign Out</button>
+      </div>
+    </aside>
+
+    <main class="main-content">
+      <div class="page-header">
+        <div>
+          <h1>Transactions</h1>
+          <p>Record and manage property transactions</p>
+        </div>
+        <button id="addTransactionBtn" class="btn btn-gold">+ New Transaction</button>
+      </div>
+
+      <div class="toolbar">
+        <div class="toolbar-left">
+          <input type="text" id="searchInput" class="search-input" placeholder="Search by property, customer, or type...">
+        </div>
+        <div class="toolbar-right" id="pagination"></div>
+      </div>
+
+      <div class="card">
+        <div class="card-body">
+          <div class="table-container">
+            <table>
+              <thead>
+                <tr>
+                  <th>Property</th>
+                  <th>Customer</th>
+                  <th>Type</th>
+                  <th>Amount</th>
+                  <th>Payment</th>
+                  <th>Status</th>
+                  <th>Date</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody id="tableBody"></tbody>
+            </table>
+            <div id="emptyState" class="empty-state" style="display:none;">
+              <div class="icon">&#9632;</div>
+              <h3>No transactions found</h3>
+              <p>Record your first property transaction.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <div class="modal-overlay" id="modalOverlay">
+    <div class="modal">
+      <div class="modal-header">
+        <h3 id="modalTitle">New Transaction</h3>
+        <button class="modal-close">&times;</button>
+      </div>
+      <form id="modalForm" novalidate>
+        <input type="hidden" id="transactionId">
+        <div class="modal-body">
+          <div class="form-group">
+            <label for="propertyId">Property *</label>
+            <select id="propertyId" required>
+              <option value="">-- Select Property --</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="customerId">Customer *</label>
+            <select id="customerId" required>
+              <option value="">-- Select Customer --</option>
+            </select>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label for="type">Transaction Type *</label>
+              <select id="type" required>
+                <option value="sale">Sale</option>
+                <option value="down_payment">Down Payment</option>
+                <option value="installment">Installment</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label for="paymentMethod">Payment Method</label>
+              <select id="paymentMethod">
+                <option value="cash">Cash</option>
+                <option value="transfer">Bank Transfer</option>
+                <option value="kpr">KPR</option>
+              </select>
+            </div>
+          </div>
+          <div class="form-group">
+            <label for="amount">Amount (Rp) *</label>
+            <input type="number" id="amount" min="0" required>
+          </div>
+          <div class="form-group">
+            <label for="notes">Notes</label>
+            <textarea id="notes"></textarea>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn modal-cancel" style="background:#eee;">Cancel</button>
+          <button type="submit" class="btn btn-primary">Save Transaction</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <div class="modal-overlay" id="paymentModalOverlay">
+    <div class="modal" style="max-width:620px;">
+      <div class="modal-header">
+        <h3 id="paymentModalTitle">Payment History</h3>
+        <button class="modal-close">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div style="margin-bottom:16px;padding:12px 16px;background:#f5f5f5;border-radius:8px;display:flex;justify-content:space-between;">
+          <span><strong id="payTxRef">Transaction #</strong></span>
+          <span>Status: <strong id="payTxStatus">-</strong></span>
+          <span>Total Paid: <strong id="payTotalPaid">-</strong></span>
+        </div>
+
+        <div id="payHistoryContainer">
+          <div class="empty-state" id="payEmpty">
+            <h3>No payments yet</h3>
+            <p>Add a down payment or full payment below.</p>
+          </div>
+          <div class="table-container" id="payTableContainer" style="display:none;">
+            <table id="payHistoryTable">
+              <thead>
+                <tr>
+                  <th>Type</th>
+                  <th>Amount</th>
+                  <th>Date</th>
+                  <th>Notes</th>
+                </tr>
+              </thead>
+              <tbody></tbody>
+            </table>
+          </div>
+        </div>
+
+        <hr style="margin:20px 0;border:none;border-top:1px solid var(--border);">
+
+        <h4 style="margin-bottom:16px;">Add Payment</h4>
+        <form id="paymentForm">
+          <input type="hidden" id="payTransactionId">
+          <div class="form-row">
+            <div class="form-group">
+              <label for="payType">Payment Type *</label>
+              <select id="payType" required>
+                <option value="dp">DP (Down Payment)</option>
+                <option value="pelunasan">Pelunasan</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label for="payAmount">Amount (Rp) *</label>
+              <input type="number" id="payAmount" min="0" required>
+            </div>
+          </div>
+          <div class="form-group">
+            <label for="payNotes">Notes</label>
+            <textarea id="payNotes"></textarea>
+          </div>
+          <div style="display:flex;justify-content:flex-end;gap:10px;">
+            <button type="submit" class="btn btn-gold">Record Payment</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <script src="js/transactions.js"></script>
+</body>
+</html>
