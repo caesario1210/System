@@ -2,7 +2,7 @@
   "name": "kasir-system",
   "version": "1.0.0",
   "description": "EstateOS - Real Estate Management",
-  "main": "src/app.js",
+  "main": "server.js",
   "scripts": {
     "start": "node src/app.js",
     "dev": "node src/app.js"
