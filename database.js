@@ -52,9 +52,15 @@ function normalizeResult(r) {
     r.columns = r.cols.map(c => c.name != null ? String(c.name) : c);
   }
   if (r.rows && r.rows.length) {
-    r.rows = r.rows.map(row => row.map(cell =>
-      cell && typeof cell === 'object' && 'value' in cell ? cell.value : cell
-    ));
+    r.rows = r.rows.map(row => row.map(cell => {
+      if (cell && typeof cell === 'object' && 'value' in cell) {
+        if (cell.type === 'integer') return parseInt(cell.value, 10);
+        if (cell.type === 'real') return Number(cell.value);
+        if (cell.type === 'null') return null;
+        return cell.value;
+      }
+      return cell;
+    }));
   }
   return r;
 }
