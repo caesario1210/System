@@ -3,9 +3,14 @@ const fs = require('fs');
 const bcrypt = require('bcryptjs');
 
 const DB_PATH = path.join(__dirname, 'data', 'database.sqlite');
+const DB_DIR = path.join(__dirname, 'data');
 let db = null;
 
 async function initialize() {
+  if (!fs.existsSync(DB_DIR)) {
+    fs.mkdirSync(DB_DIR, { recursive: true });
+  }
+
   const initSqlJs = require('sql.js');
   const SQL = await initSqlJs();
 
