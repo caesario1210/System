@@ -1,10 +1,12 @@
 const express = require('express');
 const Layer = require('express/lib/router/layer');
-const origHandle = Layer.prototype.handle_request;
 Layer.prototype.handle_request = function (req, res, next) {
-  const result = origHandle.call(this, req, res, next);
-  if (result && result.catch) result.catch(next);
-  return result;
+  var fn = this.handle;
+  if (fn.length > 3) return next();
+  try {
+    var result = fn(req, res, next);
+    if (result && result.catch) result.catch(next);
+  } catch (err) { next(err); }
 };
 const cors = require('cors');
 const bcrypt = require('bcryptjs');
