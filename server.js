@@ -6,7 +6,7 @@ const database = require('./database');
 const { generateToken, authenticateToken } = require('./auth');
 
 const app = express();
-const PORT = 3000;
+const PORT = process.env.PORT || 3000;
 
 app.use(cors());
 app.use(express.json());
