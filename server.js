@@ -13,8 +13,12 @@ app.use(cors());
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
 
+let started = false;
+
 async function start() {
   await database.initialize();
+  if (started) return;
+  started = true;
 
   const { run, get, all, insert } = database;
 
@@ -582,13 +586,14 @@ async function start() {
     res.json({ logs, total: countResult.count, page: Number(page) });
   });
 
-  app.listen(PORT, () => {
-    console.log(`EstateOS Real Estate Management running on http://localhost:${PORT}`);
-  });
 }
 
 if (require.main === module) {
-  start().catch(err => {
+  start().then(() => {
+    app.listen(PORT, () => {
+      console.log(`EstateOS Real Estate Management running on http://localhost:${PORT}`);
+    });
+  }).catch(err => {
     console.error('Failed to start server:', err);
     process.exit(1);
   });
