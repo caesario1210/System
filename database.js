@@ -62,6 +62,10 @@ function normalizeResult(r) {
       return cell;
     }));
   }
+  ['last_insert_rowid', 'rows_affected', 'affected_row_count'].forEach(k => {
+    const v = r[k];
+    if (v && typeof v === 'object' && 'value' in v) r[k] = v.value;
+  });
   return r;
 }
 

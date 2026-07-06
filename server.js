@@ -37,9 +37,7 @@ app.post('/api/auth/login', async (req, res) => {
   }
 
   const user = await get('SELECT * FROM users WHERE username = ?', [username]);
-  console.error('LOGIN user object:', JSON.stringify(user));
   if (!user || !user.id || !bcrypt.compareSync(password, user.password)) {
-    console.error('LOGIN failed - user:', !!user, 'id:', user && user.id);
     return res.status(401).json({ error: 'Invalid username or password' });
   }
   if (user.active !== 1) {
@@ -266,6 +264,16 @@ app.delete('/api/customers/:id', authenticateToken, async (req, res) => {
   await run('DELETE FROM customers WHERE id = ?', [req.params.id]);
   await logActivity(req.user, 'delete', `Deleted customer: ${existing.name}`);
   res.json({ message: 'Customer deleted successfully' });
+});
+
+app.get('/api/transactions/:id/payments', authenticateToken, async (req, res) => {
+  const transaction = await get('SELECT * FROM transactions WHERE id = ?', [req.params.id]);
+  if (!transaction || !transaction.id) return res.status(404).json({ error: 'Transaction not found' });
+
+  const payments = await all('SELECT * FROM payments WHERE transaction_id = ? ORDER BY created_at ASC', [req.params.id]);
+  const totalPaid = payments.reduce((sum, p) => sum + p.amount, 0);
+
+  res.json({ payments, totalPaid, transactionStatus: transaction.status });
 });
 
 app.get('/api/transactions', authenticateToken, async (req, res) => {
@@ -516,16 +524,6 @@ app.get('/api/reports', authenticateToken, async (req, res) => {
   });
 });
 
-app.get('/api/transactions/:id/payments', authenticateToken, async (req, res) => {
-  const transaction = await get('SELECT * FROM transactions WHERE id = ?', [req.params.id]);
-  if (!transaction || !transaction.id) return res.status(404).json({ error: 'Transaction not found' });
-
-  const payments = await all('SELECT * FROM payments WHERE transaction_id = ? ORDER BY created_at ASC', [req.params.id]);
-  const totalPaid = payments.reduce((sum, p) => sum + p.amount, 0);
-
-  res.json({ payments, totalPaid, transactionStatus: transaction.status });
-});
-
 app.post('/api/payments', authenticateToken, async (req, res) => {
   const { transaction_id, type, amount, notes } = req.body;
   if (!transaction_id || !type || !amount) {
@@ -584,7 +582,13 @@ app.get('/api/activity-logs', authenticateToken, async (req, res) => {
   `, [...params, Number(limit), Number(offset)]);
 
   const countResult = await get('SELECT COUNT(*) as count FROM activity_log ' + where, params);
-  res.json({ logs, total: countResult.count, page: Number(page) });
+  res.json({ logs, total: countResult.count, page: Number(page)   });
+});
+
+app.use((err, req, res, next) => {
+  console.error('Express error:', err);
+  if (res.headersSent) return;
+  res.status(err.status || 500).json({ error: err.message || 'Internal server error' });
 });
 
 app.use(express.static(path.join(__dirname, 'public')));
